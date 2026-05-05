@@ -1,26 +1,38 @@
-name: Video Downloader Bot
+import os
+import yt_dlp
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+# Token එක GitHub Secrets වලින් ගන්නවා
+TOKEN = os.getenv("BOT_TOKEN")
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Run Bot
-        env:
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          API_ID: ${{ secrets.API_ID }}
-          API_HASH: ${{ secrets.API_HASH }}
-        run: python main.py
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("ලින්ක් එකක් එවන්න, මම ඩවුන්ලෝඩ් කරලා දෙන්නම්!")
+
+async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    url = update.message.text
+    msg = await update.message.reply_text("වීඩියෝ එක ඩවුන්ලෝඩ් වෙනවා... පොඩ්ඩක් ඉන්න.")
+    ydl_opts = {
+        'format': 'best',
+        'outtmpl': 'video.mp4',
+        'quiet': True,
+        'no_warnings': True
+    }
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+        await update.message.reply_video(video=open('video.mp4', 'rb'))
+        await msg.delete()
+        os.remove('video.mp4')
+    except Exception as e:
+        await update.message.reply_text(f"පොඩි අවුලක් වුණා: {str(e)}")
+
+if __name__ == '__main__':
+    if TOKEN:
+        app = ApplicationBuilder().token(TOKEN).build()
+        app.add_handler(CommandHandler('start', start))
+        app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), download_video))
+        print("Bot started...")
+        app.run_polling()
+    else:
+        print("BOT_TOKEN missing!")
