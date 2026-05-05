@@ -1,34 +1,40 @@
 import os
-import yt_dlp
+import asyncio
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+import yt_dlp
 
-# මෙතනට ඔයාගේ Token එක දාන්න
-TOKEN =8558595291:AAGj_Gra5N74n_W3FQWtDLAFfYTL2o_QKcc
+# GitHub Secrets වලින් විස්තර ලබා ගැනීම
+TOKEN = os.getenv("BOT_TOKEN")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("ඕනෑම වීඩියෝ ලින්ක් එකක් එවන්න, මම ඒක download කරලා දෙන්නම්! 📥⚡️")
+    await update.message.reply_text("Hello! Send me a video link (YouTube, FB, TikTok, etc.) to download.")
 
 async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
-    await update.message.reply_text("වීඩියෝ එක සකසමින් පවතිනවා, මොහොතක් රැඳී සිටින්න...⏳")
+    msg = await update.message.reply_text("Downloading... please wait.")
+    
+    ydl_opts = {
+        'format': 'best',
+        'outtmpl': 'video.mp4',
+        'quiet': True
+    }
     
     try:
-        ydl_opts = {
-            'format': 'best',
-            'outtmpl': 'video.mp4',
-            'max_filesize': 45 * 1024 * 1024, # 45MB ට අඩු ඒවා පමණයි
-        }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
         
         await update.message.reply_video(video=open('video.mp4', 'rb'))
+        await msg.delete()
         os.remove('video.mp4')
     except Exception as e:
-        await update.message.reply_text("වැරදීමක් සිදුවුණා. ලින්ක් එක නිවැරදිද බලන්න. ❌")
+        await update.message.reply_text(f"Error: {str(e)}")
 
 if __name__ == '__main__':
-    app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), download_video))
-    app.run_polling()
+    application = ApplicationBuilder().token(TOKEN).build()
+    
+    application.add_handler(CommandHandler('start', start))
+    application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), download_video))
+    
+    print("Bot is running...")
+    application.run_polling()
